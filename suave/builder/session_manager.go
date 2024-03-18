@@ -50,6 +50,10 @@ func NewSessionManager(blockchain *core.BlockChain, pool *txpool.TxPool, config 
 	for len(sem) < cap(sem) {
 		sem <- struct{}{} // fill 'er up
 	}
+	const chainHeadChanSize = 10
+	chainHeadCh := make(chan core.ChainHeadEvent, chainHeadChanSize)
+	// Subscribe events for blockchain
+	chainHeadSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
 	s := &SessionManager{
 		sem:           sem,
