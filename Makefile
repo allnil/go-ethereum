@@ -43,8 +43,24 @@ devtools:
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
-#? help: Get more info on make commands.
-help: Makefile
-	@echo " Choose a command run in go-ethereum:"
-	@sed -n 's/^#?//p' $< | column -t -s ':' |  sort | sed -e 's/^/ /'
-.PHONY: help
+devnet-up:
+	docker-compose -f ./suave/devenv/docker-compose.yml up -d --build
+
+devnet-down:
+	docker-compose -f ./suave/devenv/docker-compose.yml down
+
+fmt-contracts:
+	cd suave && forge fmt
+
+release:
+	docker run \
+		--rm \
+		-e CGO_ENABLED=1 \
+		-e GITHUB_TOKEN="$(GITHUB_TOKEN)" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(HOME)/.docker/config.json:/root/.docker/config.json \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-v `pwd`/sysroot:/sysroot \
+		-w /go/src/$(PACKAGE_NAME) \
+		ghcr.io/goreleaser/goreleaser-cross:v1.21 \
+		release --clean --auto-snapshot

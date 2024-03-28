@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
@@ -37,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -435,4 +437,29 @@ func (b *EthAPIBackend) StateAtBlock(ctx context.Context, block *types.Block, re
 
 func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
 	return b.eth.stateAtTransaction(ctx, block, txIndex, reexec)
+}
+
+func (b *EthAPIBackend) BuildBlockFromTxs(ctx context.Context, buildArgs *types.BuildBlockArgs, txs types.Transactions) (*types.Block, *big.Int, error) {
+	return b.eth.Miner().BuildBlockFromTxs(ctx, buildArgs, txs)
+}
+
+func (b *EthAPIBackend) BuildBlockFromBundles(ctx context.Context, buildArgs *types.BuildBlockArgs, bundles []types.SBundle) (*types.Block, *big.Int, error) {
+	return b.eth.Miner().BuildBlockFromBundles(ctx, buildArgs, bundles)
+}
+
+func (b *EthAPIBackend) Call(ctx context.Context, contractAddr common.Address, input []byte) ([]byte, error) {
+	// Note: this is pretty close to be a circle dependency.
+	data := hexutil.Bytes(input)
+	txnArgs := ethapi.TransactionArgs{
+		To:   &contractAddr,
+		Data: &data,
+	}
+
+	blockNum := rpc.LatestBlockNumber
+	res, err := ethapi.DoCall(ctx, b, txnArgs, rpc.BlockNumberOrHash{BlockNumber: &blockNum}, nil, nil, 5*time.Second, 100000)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.ReturnData, nil
 }
